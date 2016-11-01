@@ -55,6 +55,8 @@ bool SPI1_ReadWriteByte(u8 TxData,u8 *RxData)
 	u8 data;
 	u32 retry=0;
 	do{
+		if(RxData!=NULL)		
+			*RxData=0;          		//返回收到的数据
 		while((SPI1->SR&1<<1)==0)		//等待发送区空	
 		{
 			retry++;

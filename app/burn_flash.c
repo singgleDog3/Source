@@ -101,10 +101,13 @@ void BURN_Flash_Wait_Busy(void)
 {   
 	u8 sr=0x01;
 	u8 byte;
+	BURN_FLASH_CS=0;                            //使能器件   
+	SPI1_ReadWriteByte(W25X_ReadStatusReg,NULL);//发送读取状态寄存器命令  	
 	do{
-		if(BURN_Flash_ReadSR(&byte)==TRUE)
-			sr=byte;
+		if(SPI1_ReadWriteByte(0Xff,&byte)==TRUE)//读取一个字节  
+			sr=byte; 
 	}while((sr&0x01)==0x01);   // 等待BUSY位清空
+	BURN_FLASH_CS=1;                            //取消片选    
 }  
 //进入掉电模式
 void BURN_Flash_PowerDown(void)   
