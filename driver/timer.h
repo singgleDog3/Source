@@ -36,6 +36,11 @@ void TIM3_PWM_Init(u16 arr,u16 psc);
 void TIM5_Cap_Init(u16 arr,u16 psc);
 void TIM4_PWM_Init(u16 arr,u16 psc);
 void TIM6_Int_Init(u16 arr,u16 psc);
+
+void TIM3_DisEnable(void);
+void TIM3_Enable(void);
+void TIM3_LoadValue(u16 arr);
+void Timer3_Clear(void);
 #endif
 
 

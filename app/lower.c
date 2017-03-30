@@ -99,6 +99,7 @@ const u8 boot_conn_hid_ack[] = {'z' + 100, 'c' + 100, 'a' + 100, 'n' + 100, 'z' 
 const u8 boot_conn_success[] = {0x04, 0x0f, 0x04, 0x01, 0x01, 0x00, 0x00};
 const u32 bd_addr_offset[MAX_DEVICE_TYPE][2] = {{0x0bec, 0x0bf1}, {0x0e, 0x13}, {0x89, 0x8e}, {0x85, 0x8a}};
 
+
 //保存已经接收到的响应header或者读取恢复data的长度
 u32 current_received_count = 0;
 //下位机作为烧写flash的发起端，在完成一次读写后所执行的动作由此回调函数执行
@@ -288,6 +289,7 @@ void lower_uart_rx_idle(u8 data)
 {
     boot_req_receive_buffer[current_received_count++] = data;
     if(current_received_count == sizeof(boot_conn_req)) {
+			
         if((memcmp(boot_req_receive_buffer, boot_conn_req, sizeof(boot_conn_req))==0)
             &&(f_bin != NULL)) {
             lower_state = LOWER_DOING_HAND_SHAKE;
@@ -478,4 +480,6 @@ void lower_uart_rx(u8 data)
             lower_uart_rx_ack(data, code_disconn_ack_opcode);
     }
 }
+
+
 

@@ -42,6 +42,11 @@ void Get_SerialNum(void);
 void MAL_Config(void);
 /* External variables --------------------------------------------------------*/
 
+
+//
+void DisEnable_USB(void);
+void Enable_USB(void);
+
 #endif  /*__HW_CONFIG_H*/
 
 /******************* (C) COPYRIGHT 2008 STMicroelectronics *****END OF FILE****/

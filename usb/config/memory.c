@@ -24,6 +24,7 @@
 #include "hw_config.h"
 #include "mass_mal.h"
 
+
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
 /* Private macro -------------------------------------------------------------*/
@@ -119,6 +120,7 @@ void Read_Memory(u8 lun, u32 Memory_Offset, u32 Transfer_Length)
 * Output         : None.
 * Return         : None.
 *******************************************************************************/
+
 void Write_Memory (u8 lun, u32 Memory_Offset, u32 Transfer_Length)
 {	 
 	static u32 W_Offset, W_Length;	

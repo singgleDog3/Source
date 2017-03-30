@@ -1,35 +1,13 @@
 #include "sys.h"
-#include "usart.h"	  
+#include "usart.h"
+#include "uart2_download.h"
+#include "timer.h"
+
 ////////////////////////////////////////////////////////////////////////////////// 	 
 //如果使用ucos,则包括下面的头文件即可.
 #if SYSTEM_SUPPORT_UCOS
 #include "includes.h"					//ucos 使用	  
-#endif
-//////////////////////////////////////////////////////////////////////////////////	 
-//本程序只供学习使用，未经作者许可，不得用于其它任何用途
-//ALIENTEK STM32开发板
-//串口1初始化		   
-//正点原子@ALIENTEK
-//技术论坛:www.openedv.com
-//修改日期:2012/8/18
-//版本：V1.5
-//版权所有，盗版必究。
-//Copyright(C) 广州市星翼电子科技有限公司 2009-2019
-//All rights reserved
-//********************************************************************************
-//V1.3修改说明 
-//支持适应不同频率下的串口波特率设置.
-//加入了对printf的支持
-//增加了串口接收命令功能.
-//修正了printf第一个字符丢失的bug
-//V1.4修改说明
-//1,修改串口初始化IO的bug
-//2,修改了USART_RX_STA,使得串口最大接收字节数为2的14次方
-//3,增加了USART_REC_LEN,用于定义串口最大允许接收的字节数(不大于2的14次方)
-//4,修改了EN_USART1_RX的使能方式
-//V1.5修改说明
-//1,增加了对UCOSII的支持
-////////////////////////////////////////////////////////////////////////////////// 	  
+#endif  
  
 
 //////////////////////////////////////////////////////////////////
@@ -54,10 +32,22 @@ _sys_exit(int x)
 //重定义fputc函数 
 int fputc(int ch, FILE *f)
 {      
-	while((USART1->SR&0X40)==0);//循环发送,直到发送完毕   
+	while((USART2->SR&0X40)==0);//循环发送,直到发送完毕   
 	USART2->DR = (u8) ch;      
 	return ch;
 }
+
+int fputs(const char *str, FILE * FIL )
+{
+	uint32_t num = 0;
+	
+	while(*(str + num) != '\0'){
+		fputc(*(str + num), FIL);
+		num++;
+	}
+	return 0;
+}
+
 #endif 
 //end
 //////////////////////////////////////////////////////////////////
@@ -106,13 +96,22 @@ void USART1_IRQHandler(void)
 #endif										 
 
 extern void lower_uart_rx(u8 data);
+static u32 ReceiveDataLenght = 0;
+
+
 void USART2_IRQHandler(void)
 {
     u8 res;
-    
+		uint8_t temp_str[250];
+		uint32_t temp;
+		static uint8_t uart2_flag = 1;
+	
     if(USART2->SR & (1<<5)) {
-        res = USART2->DR;
-        lower_uart_rx(res);
+        res = USART2->DR;		
+				Timer3_Clear();
+				uart2_DownloadEntry(res);
+				
+        //lower_uart_rx(res);
     }
 }
 
@@ -149,7 +148,7 @@ void uart_init(u32 pclk2,u32 bound)
 	RCC->APB2ENR|=1<<14;  //使能串口时钟 
 	GPIOA->CRH&=0XFFFFF00F;//IO状态设置
 	GPIOA->CRH|=0X000008B0;//IO状态设置
-		  
+
 	RCC->APB2RSTR|=1<<14;   //复位串口1
 	RCC->APB2RSTR&=~(1<<14);//停止复位	   	   
 	//波特率设置
@@ -157,16 +156,22 @@ void uart_init(u32 pclk2,u32 bound)
 	USART1->CR1|=0X200C;  //1位停止,无校验位.
 #if EN_USART1_RX		  //如果使能了接收
 	//使能接收中断
+
 	USART1->CR1|=1<<8;    //PE中断使能
 	USART1->CR1|=1<<5;    //接收缓冲区非空中断使能	    	
 	MY_NVIC_Init(3,3,USART1_IRQChannel,2);//组2，最低优先级 
+
 #endif
 
 #if 1   //USART2 initialization
-    RCC->APB1ENR|=1<<17;  //使能串口时钟 
-    GPIOA->CRL&=0XFFFF00FF;//IO状态设置
+  RCC->APB1ENR|=1<<17;  //使能串口时钟 
+#if UART_DOWNLOAD
+  GPIOA->CRL&=0XFFFF00FF;//IO状态设置
 	GPIOA->CRL|=0X00008B00;//IO状态设置
-		  
+#elif SPI_DOWNLOAD
+	 
+#endif
+
 	RCC->APB1RSTR|=1<<17;   //复位串口2
 	RCC->APB1RSTR&=~(1<<17);//停止复位	   	   
 	//波特率设置
@@ -177,6 +182,116 @@ void uart_init(u32 pclk2,u32 bound)
 	USART2->CR1|=1<<8;    //PE中断使能
 	USART2->CR1|=1<<5;    //接收缓冲区非空中断使能	    	
 	MY_NVIC_Init(3,3,USART2_IRQChannel,2);//组2，最低优先级 
-#endif
+#endif 
+
+
 }
+
+void uart2_ChangeBaudRate(unsigned int bound)
+{
+		float temp;
+	u16 mantissa;
+	u16 fraction;
+    
+	temp=(float)(36*1000000)/(bound*16);//得到USARTDIV
+	mantissa=temp;				 //得到整数部分
+	fraction=(temp-mantissa)*16; //得到小数部分	 
+    mantissa<<=4;
+	mantissa+=fraction; 
+	
+	USART2->CR1&= ~ (1<<8);    //PE中断使能
+	USART2->BRR=mantissa; // 波特率设置	
+	USART2->CR1 |=  (1<<8); 	
+}
+
+void uart2_WriteChar(u8 ch)
+{
+	while((USART2->SR & (0x01<<6)) == 0);
+	USART2->DR = ch;
+}
+
+void uart2_WriteStr(char *str, unsigned int length)
+{
+	u32 num = 0;
+	while(num < length){
+		uart2_WriteChar(*(str+num));
+		num++;
+	}
+}
+
+
+void uart2_DownloadData(u8 *str, u32 length)
+{
+
+}
+
+
+//检测开始信号
+u32 CheckStartSingle(void)
+{
+	u8 StartFlag = 0;
+
+	if(GPIOB->IDR & 0x01 == 0x01){
+		delay_ms(20);
+		if(GPIOB->IDR & 0x01 == 0x01)
+			StartFlag = 0x01;
+	}
+	else 
+		StartFlag = 0x00;
+	return StartFlag;
+}
+
+//初始化PB0脚，输入；
+void InitStartPin(void)
+{
+	// mode 
+	GPIOB->CRL &= (~(0x03<<0));
+	GPIOB->CRL |= (0x00 << 0);
+	
+	//pull_up and pull_down
+	GPIOB->CRL &= (~(0x03<<2));
+	GPIOB->CRL |= (0x02 << 2);
+	
+	// open MR0
+	EXTI->IMR &= ~(0x01 << 0);
+	EXTI->IMR |= 0x01;
+	
+	//上升沿触发
+	EXTI->RTSR &= ~(0x01 << 0);
+	EXTI->RTSR |= 0x01;
+	// 禁止下降沿触发
+	EXTI->FTSR &= ~(0x01 <<0);
+	
+	//
+	AFIO->EXTICR[0] &= (~(0x0f <<0));
+	AFIO->EXTICR[0] |= 0x01;
+	
+	MY_NVIC_Init(3,3,EXTI0_IRQChannel,2);
+	
+}
+
+
+u8 StartFlag = 0;
+void EXTI0_IRQHandler(void)
+{
+	EXTI->IMR &= ~(0x01 << 0);
+	EXTI->PR &= (0x01<<0);
+	
+	StartFlag = 1;
+	EXTI->IMR |= (0x01 << 0);
+}
+
+
+void Timer1_Init(void)
+{
+	//
+//	TIM1->CR1
+//	
+//	
+//	TIM1->PSC = 0x0009;
+//	TIM1->ARR = 60000 ;
+}
+
+
+
 

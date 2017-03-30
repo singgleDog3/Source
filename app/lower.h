@@ -1,5 +1,6 @@
 #ifndef _LOWER_H
 #define _LOWER_H
+#include "delay.h"
 
 enum lower_state_t {
     LOWER_DISABLE,
@@ -26,5 +27,8 @@ void lower_uart_tx_disconnect(void);
 void lower_uart_tx_bin(void);
 void lower_uart_reset(void);
 
+
+
+	
 #endif
 

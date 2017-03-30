@@ -8,6 +8,8 @@
 #include "usart.h"	
 #include "malloc.h"
 #include "lower.h"
+#include "uart2_download.h"
+
 #define FLASH_SECTOR_SIZE	4096
 u16 BURN_FLASH_TYPE=W25Q64;//默认就是25Q64
 typedef struct{
@@ -30,7 +32,7 @@ void BURN_Flash_Init(void)
 	GPIOA->CRL|=0X00030000;	//PA4 推挽 	    
 	GPIOA->ODR|=1<<4;    	//PA4上拉
 	SPI1_Init();		   	//初始化SPI
-	SPI1_SetSpeed(SPI_SPEED_4);//设置为18M时钟,高速模式
+	SPI1_SetSpeed(SPI_SPEED_64);//设置为18M时钟,高速模式
 	BURN_FLASH_TYPE=BURN_Flash_ReadID();//读取FLASH ID.
 }  
 
@@ -84,7 +86,7 @@ void BURN_Flash_Erase_Chip(void)
 void BURN_Flash_Erase_Sector(u32 Dst_Addr)   
 {  
 	//监视falsh擦除情况,测试用   
- 	printf("fe:%x\r\n",Dst_Addr);	  
+ 	//printf("fe:%x\r\n",Dst_Addr);	  
  	Dst_Addr*=4096;
     BURN_Flash_Write_Enable();                  //SET WEL 	 
     BURN_Flash_Wait_Busy();   
@@ -151,7 +153,7 @@ u16 BURN_Flash_ReadID(void)
 {
 	u8 datal,datah;
 	u16 Temp = 0;	  
-	BURN_FLASH_CS=0;				    
+	BURN_FLASH_CS=0;
 	SPI1_ReadWriteByte(0x90,NULL);//发送读取ID命令	    
 	SPI1_ReadWriteByte(0x00,NULL); 	    
 	SPI1_ReadWriteByte(0x00,NULL); 	    
@@ -162,7 +164,11 @@ u16 BURN_Flash_ReadID(void)
 	Temp|=datal;	 
 	BURN_FLASH_CS=1;				    
 	return Temp;
-}   		    
+}   		 \
+
+
+
+
 //读取SPI FLASH  
 //在指定地址开始读取指定长度的数据
 //pBuffer:数据存储区
@@ -172,10 +178,11 @@ void BURN_Flash_Read(u8* pBuffer,u32 ReadAddr,u16 NumByteToRead)
 { 
  	u16 i;   										    
 	BURN_FLASH_CS=0;                            //使能器件   
-    SPI1_ReadWriteByte(W25X_ReadData,NULL);         //发送读取命令   
+    SPI1_ReadWriteByte(W25X_FastReadData,NULL);         //发送读取命令   
     SPI1_ReadWriteByte((u8)((ReadAddr)>>16),NULL);  //发送24bit地址    
     SPI1_ReadWriteByte((u8)((ReadAddr)>>8),NULL);   
-    SPI1_ReadWriteByte((u8)ReadAddr,NULL);   
+    SPI1_ReadWriteByte((u8)ReadAddr,NULL); 
+		SPI1_ReadWriteByte(W25X_Dummuy, NULL);
     for(i=0;i<NumByteToRead;i++)
 	{ 
         SPI1_ReadWriteByte(0XFF,&pBuffer[i]);   //循环读数  
@@ -229,6 +236,7 @@ void BURN_Flash_Write_NoCheck(u8* pBuffer,u32 WriteAddr,u16 NumByteToWrite)
 		}
 	};	    
 } 
+
 bool BURN_Flash_Write_Sectors(u8* pBuffer,u32 WriteAddr,u16 NumByteToWrite)
 {
 	u32 secpos;
@@ -362,8 +370,17 @@ bool burnFLASH(void)
 	return FALSE;
 }
 
+extern  uint32_t  ParamInfo_TotalNum;
+extern uint32_t  ParamInfo_BeTransferedNum;
+extern uint32_t  ParamInfo_LeftNum;	
+extern uint32_t  ParamInfo_BaseAddr;
+extern uint32_t  ParamInfo_BlueAddr_offset;
+#define SPISector_NUM (4096)
+static uint8_t SPI_DataBuf[SPISector_NUM];
+
 bool burnFlashbysector(void)
 {
+#if 0
 	static UINT read_count = 0;
 	UINT tmp_addr;
 	for(;;){
@@ -374,10 +391,14 @@ bool burnFlashbysector(void)
 		}
 		if(burn_buffer_size==0)
 		{
+#if 0
 			if(f_lseek(f_bin, 0)!=FR_OK)
 				break;
 			if(f_read(f_bin, burn_buffer, FLASH_SECTOR_SIZE, &read_count)!=FR_OK)
 				break;
+#else
+			FSMC_SRAM_ReadBuffer(burn_buffer, ParamInfo_BaseAddr, FLASH_SECTOR_SIZE);
+#endif
 		}
 		if((burn_buffer_size <= bd_addr_offset[device_type][0])
 			&&((burn_buffer_size+read_count) > bd_addr_offset[device_type][0])) {
@@ -392,7 +413,7 @@ bool burnFlashbysector(void)
 			memcpy(burn_buffer, bd_addr+(burn_buffer_size+5-bd_addr_offset[device_type][1]), bd_addr_offset[device_type][1]-burn_buffer_size+1);
 		}
 
-		BURN_Flash_Write_Sectors(burn_buffer,burn_buffer_size,read_count);
+		BURN_Flash_Write_Sectors(burn_buffer,burn_buffer_size,read_count);	
 		burn_buffer_size += read_count;
 		if(burn_buffer_size >= f_bin->fsize) {
 			burn_buffer_size = 0;
@@ -407,13 +428,139 @@ bool burnFlashbysector(void)
 			return TRUE;
 		}
 		else {
+#if 0
 			if(f_read(f_bin, burn_buffer, FLASH_SECTOR_SIZE, &read_count)!=FR_OK)
 				break;
+#else
+			
+#endif
+
 		}
 	}
 	return FALSE;
+	
+#else
+	
+uint32_t size;
+	
+ParamInfo_LeftNum = ParamInfo_TotalNum;
+	
+for(ParamInfo_BeTransferedNum = 0; ParamInfo_BeTransferedNum < ParamInfo_TotalNum; ){
+	if(ParamInfo_LeftNum > SPISector_NUM)
+		size = SPISector_NUM;
+	else
+		size = ParamInfo_LeftNum;
+	
+	FSMC_SRAM_ReadBuffer(SPI_DataBuf, ParamInfo_BaseAddr + ParamInfo_BeTransferedNum, size);
+	BURN_Flash_Write_Sectors(SPI_DataBuf,ParamInfo_BeTransferedNum,size);	
+	
+	ParamInfo_BeTransferedNum += size;
+	ParamInfo_LeftNum = ParamInfo_TotalNum - ParamInfo_BeTransferedNum;
 }
 
+return TRUE;
+	
+#endif
+}
+
+
+/*func: Enable_OutVcc
+effect: enable the SPX3819, output the vcc
+*/
+void Enable_OutVcc(void)
+{
+//GPIOE_CRL -- mode  00  PE3 bit12-bit13
+	GPIOE->CRL &= ~(0x03 << 12);
+	GPIOE->CRL |=  0x01 <<12;
+// CNF3  bit14-bit15   通用推挽输出 00
+	GPIOE->CRL &= ~(0x03 << 14);
+	GPIOE->CRL |=  0x00 <<14;
+	// output 1
+	GPIOE->ODR = 0x01<<3;
+}
+
+void DISEnable_OutVcc(void)
+{
+//GPIOE_CRL -- mode  00  PE3 bit12-bit13
+	GPIOE->CRL &= ~(0x03 << 12);
+	GPIOE->CRL |=  0x01 <<12;
+// CNF3  bit14-bit15   通用推挽输出 00
+	GPIOE->CRL &= ~(0x03 << 14);
+	GPIOE->CRL |=  0x00 <<14;
+	// output 1
+	GPIOE->ODR = 0x00<<3;
+}
+
+/*func: Enable_CMOS
+effect: enable the cmos ,output the Reset single
+*/
+void RESET_Single(void)
+{
+	power_control_pin_on();
+	delay_ms(500);
+	power_control_pin_off();
+	delay_ms(25000);
+	power_control_pin_on();
+	delay_ms(500);
+}
+
+
+//拉低
+void UP_Reset(void)
+{
+//GPIOE_CRL -- mode  00  PE2 bit12-bit13
+	GPIOE->CRL &= ~(0x03 << 8);
+	GPIOE->CRL |=  0x01 <<8;
+// CNF3  bit14-bit15   通用推挽输出 00
+	GPIOE->CRL &= ~(0x03 << 10);
+	GPIOE->CRL |=  0x00 <<10;
+	// output 1
+	GPIOE->ODR = 0x01<<2;
+}
+
+// 不拉低
+void LOWER_Reset(void)
+{
+//GPIOE_CRL -- mode  00  PE2 bit12-bit13
+	GPIOE->CRL &= ~(0x03 << 8);
+	GPIOE->CRL |=  0x01 <<8;
+// CNF3  bit14-bit15   通用推挽输出 00
+	GPIOE->CRL &= ~(0x03 << 10);
+	GPIOE->CRL |=  0x00 <<10;
+	// output 1
+	GPIOE->ODR = 0x00<<2;
+}
+
+#define ReadNum (512)
+uint8_t SPI_ReadData[ReadNum];
+uint8_t SRAM_ReadData[ReadNum];
+
+// SPI_DataBuf
+bool CheckSPIDownload(u32 total)
+{
+	uint32_t read_addr;
+	uint32_t size = 0;
+	uint32_t left = total;
+	uint32_t transfer_num = 0;
+	
+	for(transfer_num = 0; transfer_num < total; ){
+		if(left > ReadNum){
+			size = ReadNum;
+		}	else{
+			size = left;
+		}
+		
+		BURN_Flash_Read(SPI_ReadData, transfer_num, size);
+		FSMC_SRAM_ReadBuffer(SRAM_ReadData, ParamInfo_BaseAddr + transfer_num, size);
+		if(memcmp(SPI_ReadData, SRAM_ReadData, size) != 0){
+			return FALSE;
+		}
+		transfer_num += size;
+		left = total - transfer_num;
+	}
+	
+	return TRUE;
+}
 
 
 

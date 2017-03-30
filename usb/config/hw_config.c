@@ -20,8 +20,7 @@
 #include "mass_mal.h"
 #include "usb_desc.h"
 #include "usb_pwr.h"
-#include "led.h"
-					    			 
+#include "led.h"				    			 
 
 //配置USB时钟,USBclk=48Mhz
 void Set_USBClock(void)
@@ -30,6 +29,17 @@ void Set_USBClock(void)
 	RCC->APB1ENR|=1<<23; //USB时钟使能					 
 }
 
+
+// 关闭USB中断
+void DisEnable_USB(void)
+{
+RCC->APB1ENR &= ~(1<<23);
+}
+//开启USB中断
+void Enable_USB(void)
+{
+RCC->APB1ENR|=1<<23;
+}
 /*******************************************************************************
 * Function Name  : Enter_LowPowerMode
 * Description    : Power-off system clocks and power while entering suspend mode

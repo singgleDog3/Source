@@ -85,6 +85,8 @@ void Mass_Storage_In (void)
 * Return         : None.
 //USB->…Ë±∏
 *******************************************************************************/
+unsigned char usbTransfer_Flag = 0;
+
 void Mass_Storage_Out (void)
 {
 	u8 CMD;

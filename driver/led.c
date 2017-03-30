@@ -25,7 +25,9 @@ void LED_Init(void)
 											  
 	GPIOE->CRL&=0XFF00FFFF;
 	GPIOE->CRL|=0X00330000;//PE.45推挽输出
-	GPIOE->ODR|=0x03<<4;      //PE.45输出高//...
+	//GPIOE->ODR|=0x03<<4;      //PE.45输出高//...
+	GPIOE->ODR  &= ~(0x03<<4);
+	
 //	GPIOE->ODR &= ~(0x03<<4);      //PE.45输出高
 }
 

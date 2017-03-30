@@ -53,12 +53,15 @@ void FSMC_SRAM_Init(void)
 	//bank1有NE1~4,每一个有一个BCR+TCR，所以总共八个寄存器。
 	//这里我们使用NE3 ，也就对应BTCR[4],[5]。				    
 	FSMC_Bank1->BTCR[4]=0X00000000;
-	FSMC_Bank1->BTCR[5]=0X00000000;
+//	FSMC_Bank1->BTCR[5]=0X00000000;
+	FSMC_Bank1->BTCR[5]=0X1 << 20;
 	FSMC_Bank1E->BWTR[4]=0X00000000;
 	//操作BCR寄存器	使用异步模式,模式A(读写共用一个时序寄存器)
 	//BTCR[偶数]:BCR寄存器;BTCR[奇数]:BTR寄存器
 	FSMC_Bank1->BTCR[4]|=1<<12;//存储器写使能
-	FSMC_Bank1->BTCR[4]|=1<<4; //存储器数据宽度为16bit 	    
+	FSMC_Bank1->BTCR[4]|=1<<4; //存储器数据宽度为16bit 	
+	// 
+
 	//操作BTR寄存器								    
 	FSMC_Bank1->BTCR[5]|=3<<8; //数据保持时间（DATAST）为3个HCLK 4/72M=55ns(对EM的SRAM芯片)	 	 
 	FSMC_Bank1->BTCR[5]|=0<<4; //地址保持时间（ADDHLD）未用到	  	 

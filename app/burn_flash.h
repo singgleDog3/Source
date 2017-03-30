@@ -46,6 +46,7 @@ extern u16 SPI_FLASH_TYPE;		//定义我们使用的flash芯片型号
 #define W25X_DeviceID			0xAB 
 #define W25X_ManufactDeviceID	0x90 
 #define W25X_JedecDeviceID		0x9F 
+#define W25X_Dummuy 0x00
 
 void BURN_Flash_Init(void);
 u16  BURN_Flash_ReadID(void);  	    //读取FLASH ID
@@ -64,4 +65,14 @@ void BURN_Flash_WAKEUP(void);			  //唤醒
 
 bool burnFLASH(void);
 bool burnFlashbysector(void);
+
+void Enable_OutVcc(void);
+void DISEnable_OutVcc(void);
+
+void RESET_Single(void);
+void UP_Reset(void);
+void LOWER_Reset(void);
+
+bool CheckSPIDownload(u32 total);
+
 #endif
