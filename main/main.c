@@ -259,6 +259,12 @@ while(1){
 			BusyPin_Init();
 			EnableBusy();
 			uart2_ChangeBaudRate(115200);
+		// if load the patch or param_bin file to SRAM Falied; send NG single
+		if(patch_total == 0 | param_total == 0){
+				while(1){
+					NG_Single();
+				}
+			}
 			ParamInfo_Init(param_total, patch_total);
 			PatchInfo_Init(patch_total);
 		
@@ -336,6 +342,13 @@ if( StartFlag == 1){
 			OKPin_Init();
 			BusyPin_Init();
 			EnableBusy();
+	// if load the  param_bin file to SRAM Falied; send NG single
+			if(patch_total == 0 ){
+				while(1){
+					NG_Single();
+				}
+			}
+	
 			ParamInfo_Init(param_total, patch_total);
 			PatchInfo_Init(patch_total);
 		
